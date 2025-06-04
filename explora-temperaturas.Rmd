@@ -1,0 +1,216 @@
+
+
+```{r bibliotecas }
+library(tidyverse)
+library(here)
+library(lubridate)
+library(ggbeeswarm)
+library(ggplot2)
+library(dplyr)
+```
+
+```{r rodacodigo01}
+### Q1: Qual a cidade é mais quente? Isso muda se considerarmos apenas o período de janeiro e fevereiro (pico do verão)? 
+
+# Ler o arquivo CSV
+dados <- read.csv("C:/LabDadosR/lab 02/clima_cg_jp-semanal.csv")
+
+# Calcular a temperatura média por cidade
+media_temperaturas <- dados %>%
+ group_by(cidade) %>%
+ summarise(media_temp = mean(tmedia, na.rm = TRUE))
+
+# Encontrar a cidade mais quente
+cidade_mais_quente <- media_temperaturas %>%
+ filter(media_temp == max(media_temp))
+ 
+
+
+#Filtrar os dados para os meses de janeiro (1) e fevereiro (2)
+dados_filtrados <- dados %>%
+filter(mes %in% c(1, 2))
+
+
+# Plotar o gráfico de barras
+ggplot(media_temperaturas, aes(x = cidade, y = media_temp, fill = cidade)) +
+geom_text(aes(label = round(media_temp, 2)), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5) +
+ geom_bar(stat = "identity") +
+ labs(title = "Temperatura Média por Cidade",
+ x = "Cidade",
+ y = "Temperatura Média (°C)") +
+ theme_minimal()
+```
+
+### Q2: Quais os meses mais quentes e mais frios? Como você descreveria a temperatura das festas juninas das cidades nos últimos anos?
+
+```{r rodacodigo02}
+# Ler o arquivo CSV
+dados <- read.csv("C:/LabDadosR/lab 02/clima_cg_jp-semanal.csv")
+
+# Calcular a temperatura média por mês
+media_temperaturas_mes <- dados %>%
+ group_by(mes) %>%
+ summarise(media_temp = mean(tmedia, na.rm = TRUE))
+
+# Encontrar o mês mais quente e o mês mais frio
+mes_mais_quente <- media_temperaturas_mes %>%
+ filter(media_temp == max(media_temp))
+
+mes_mais_frio <- media_temperaturas_mes %>%
+filter(media_temp == min(media_temp))
+
+# Combinar os dados dos meses mais quentes e mais frios
+meses_extremos <- rbind(mes_mais_quente, mes_mais_frio)
+
+# Plotar o gráfico de barras
+ggplot(meses_extremos, aes(x = factor(mes), y = media_temp, fill = factor(mes))) +
+geom_text(aes(label = round(media_temp, 2)), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5) +
+ geom_bar(stat = "identity") +
+ labs(title = "Meses Mais Quentes e Mais Frios",
+ x = "Mês",
+ y = "Temperatura Média (°C)") +
+theme_minimal() +
+scale_fill_manual(values = c("red", "blue"), labels = c("Mais Quente", "Mais Frio")) + theme(legend.title = element_blank())
+```
+
+```{r rodacodigo03}
+# Filtrar os dados para o mês de junho (6) nos últimos anos (2010-2023)
+dados_junho <- dados %>%
+ filter(mes == 6 & ano >= 2010)
+
+# Calcular a temperatura média por cidade e ano para o mês de junho
+media_temperaturas_junho <- dados_junho %>%
+ group_by(cidade, ano) %>%
+ summarise(media_temp = mean(tmedia, na.rm = TRUE))
+
+# Descrever a temperatura durante as festas juninas nos últimos anos
+descricao_junho <- media_temperaturas_junho %>%
+ group_by(cidade) %>%
+ summarise(
+ media = mean(media_temp, na.rm = TRUE),
+ desvio_padrao = sd(media_temp, na.rm = TRUE),
+ minimo = min(media_temp, na.rm = TRUE),
+ maximo = max(media_temp, na.rm = TRUE)
+ )
+
+print(descricao_junho)
+
+# Plotar o gráfico de barras para as temperaturas médias em junho por cidade
+ggplot(media_temperaturas_junho, aes(x = ano, y = media_temp, color = cidade, group = cidade)) +
+ geom_line() +
+ geom_point() +
+ labs(title = "Temperatura Média em Junho por Cidade (2010-2023)",
+x = "Ano",
+y = "Temperatura Média em Junho (°C)") +
+theme_minimal() +
+ scale_color_manual(values = c("Campina Grande" = "blue", "João Pessoa" = "red"))
+```
+
+### Q3: Quanto chove por semana em JP e CG? Descreva a distribuição do volume de chuvas para as cidades?
+
+```{r rodacodigo04}
+
+# Ler o arquivo CSV
+data <- read_csv("C:/LabDadosR/lab 02/clima_cg_jp-semanal.csv")
+
+# Calcular a quantidade de chuva por semana em JP e CG
+rainfall_summary <- data %>%
+group_by(semana, cidade) %>%
+summarise(Total_Chuva = sum(chuva, na.rm = TRUE))
+
+# Plotar o gráfico de barras
+ggplot(rainfall_summary, aes(x = semana, y = Total_Chuva, fill = cidade)) +
+geom_bar(stat = "identity", position = "dodge") +
+labs(title = "Quantidade de Chuva por Semana em JP e CG",
+x = "Semana",
+y = "Total de Chuva (mm)") +
+theme_minimal()
+```
+
+### Q4: Qual a relação entre a temperatura de uma semana e a temperatura da semana anterior (descreva para as duas cidades)?
+
+```{r rodacodigo05}
+
+# Ler o arquivo CSV
+data <- read_csv("C:/LabDadosR/lab 02/clima_cg_jp-semanal.csv")
+
+# Calcular a diferença de temperatura entre semanas consecutivas
+data <- data %>%
+ group_by(cidade) %>%
+ arrange(cidade, ano, semana) %>%
+ mutate(
+ tmedia_diff = tmedia - lag(tmedia),
+ tmax_diff = tmax - lag(tmax),
+ tmin_diff = tmin - lag(tmin)
+ )
+
+# Remover as primeiras linhas de cada cidade que não têm semana anterior
+data <- data %>%
+ filter(!is.na(tmedia_diff))
+
+# Plotar a relação entre a temperatura de uma semana e a semana anterior
+ggplot(data, aes(x = lag(tmedia), y = tmedia, color = cidade)) +
+ geom_point() +
+ geom_smooth(method = "lm", se = FALSE) +
+ labs(title = "Relação entre a Temperatura Média de uma Semana e a Semana Anterior",
+ x = "Temperatura Média da Semana Anterior (°C)",
+ y = "Temperatura Média da Semana Atual (°C)") +
+ theme_minimal()
+
+# Plotar a diferença de temperatura entre semanas consecutivas
+ggplot(data, aes(x = semana, y = tmedia_diff, color = cidade)) +
+ geom_line() +
+ labs(title = "Diferença de Temperatura Média entre Semanas Consecutivas",
+ x = "Semana",
+ y = "Diferença de Temperatura Média (°C)") +
+ theme_minimal()
+```
+
+### Q5: Qual a relação entre temperatura e chuvas nas semanas em que choveu (descreva para as duas cidades)?
+
+```{r rodacodigo06}
+
+# Ler os arquivos CSV
+data_2 <- read_csv("C:/LabDadosR/lab 02/clima_cg_jp-semanal 2.csv")
+data_4 <- read_csv("C:/LabDadosR/lab 02/clima_cg_jp-semanal 4.csv")
+
+# Combinar os dados dos dois arquivos
+data <- bind_rows(data_2, data_4)
+
+# Filtrar as semanas em que choveu
+data_chuva <- data %>%
+ filter(chuva > 0)
+
+# Calcular a média de temperatura para as semanas com chuva
+data_chuva_summary <- data_chuva %>%
+ group_by(cidade) %>%
+ summarise(
+ tmedia_media = mean(tmedia, na.rm = TRUE),
+ tmax_media = mean(tmax, na.rm = TRUE),
+ tmin_media = mean(tmin, na.rm = TRUE),
+ chuva_media = mean(chuva, na.rm = TRUE)
+ )
+
+# Plotar o gráfico de barras
+ggplot(data_chuva_summary, aes(x = cidade, y = chuva_media, fill = cidade)) +
+ geom_bar(stat = "identity", position = "dodge") +
+ geom_text(aes(label = round(chuva_media, 2)), vjust = -0.5) +
+ labs(title = "Relação entre Temperatura e Chuvas nas Semanas em que Choveu",
+ x = "Cidade",
+ y = "Média de Chuva (mm)") +
+ theme_minimal()
+
+# Plotar a relação entre temperatura média e chuva média
+ggplot(data_chuva, aes(x = chuva, y = tmedia, color = cidade)) +
+ geom_point() +
+ geom_smooth(method = "lm", se = FALSE) +
+ labs(title = "Relação entre Temperatura Média e Chuva nas Semanas em que Choveu",
+ x = "Chuva (mm)",
+ y = "Temperatura Média (°C)") +
+ theme_minimal()
+```
+
